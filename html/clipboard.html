@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Universal Clipboard Handler</title>
+    <style>
+        body {
+            background: transparent;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        #temp-input {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Input nascosto per la copia -->
+    <textarea id="temp-input"></textarea>
+    
+    <script>
+        // Elementi DOM
+        const tempInput = document.getElementById('temp-input');
+        
+        // Ascolta i messaggi dal gioco
+        window.addEventListener('message', function(event) {
+            const data = event.data;
+            
+            // Comando universale per la copia
+            if (data.type === 'copy') {
+                copyToClipboard(data.text, data.source || 'unknown');
+            }
+        });
+        
+        // Funzione di copia universale
+        function copyToClipboard(text, source) {
+            console.log(`Copy request from: ${source}, text length: ${text.length}`);
+            
+            try {
+                // Prepara l'elemento input
+                tempInput.value = text;
+                tempInput.select();
+                tempInput.setSelectionRange(0, 99999); // Per mobile
+                
+                // Esegui il comando copy
+                const success = document.execCommand('copy');
+                
+                console.log(`Copy result for ${source}: ${success}`);
+                
+                // Invia il risultato al gioco
+                sendResult(success, null, source);
+            } catch (err) {
+                console.error(`Copy error for ${source}:`, err);
+                sendResult(false, err.message, source);
+            }
+        }
+        
+        // Invia il risultato al gioco
+        function sendResult(success, error, source) {
+            // Invia l'evento specifico per la fonte della richiesta
+            const endpoint = source === 'discord' ? 'discordResult' : 'doorhashResult';
+            
+            fetch(`https://${GetParentResourceName()}/${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    success: success,
+                    error: error || null
+                })
+            }).catch(err => {
+                console.error(`Error sending result to ${endpoint}:`, err);
+            });
+        }
+    </script>
+</body>
+</html>
